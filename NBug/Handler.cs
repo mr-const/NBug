@@ -31,13 +31,21 @@ namespace NBug
 			}
 		}
 
-		// Using delegates to make sure that static constructor gets called on delegate access
+        /// <summary>
+        /// Gets or sets an event handler for application exit.
+        /// 
+        /// Sometimes (when using CEF for example), we can't exit application with Environment.Exit(), so we
+        /// provide user with this callback to call his desired exit function. If not set, Environment.Exit is called.
+        /// </summary>
+        public static event EventHandler ExitCallback;
 
-		/// <summary>
-		/// Used for handling WPF exceptions bound to the UI thread.
-		/// Handles the <see cref="Application.DispatcherUnhandledException"/> events in <see cref="System.Windows"/> namespace.
-		/// </summary>
-		public static DispatcherUnhandledExceptionEventHandler DispatcherUnhandledException
+        // Using delegates to make sure that static constructor gets called on delegate access
+
+        /// <summary>
+        /// Used for handling WPF exceptions bound to the UI thread.
+        /// Handles the <see cref="Application.DispatcherUnhandledException"/> events in <see cref="System.Windows"/> namespace.
+        /// </summary>
+        public static DispatcherUnhandledExceptionEventHandler DispatcherUnhandledException
 		{
 			get
 			{
@@ -109,7 +117,18 @@ namespace NBug
 			}
 		}
 
-		[HandleProcessCorruptedStateExceptions]
+        private static bool OnExitCallback()
+        {
+            if (ExitCallback != null)
+            {
+                ExitCallback(null, EventArgs.Empty);
+                return true;
+            }
+
+            return false;
+        }
+
+        [HandleProcessCorruptedStateExceptions]
 		private static void CorruptDispatcherUnhandledExceptionHandler(object sender, DispatcherUnhandledExceptionEventArgs e)
 		{
 			DispatcherUnhandledExceptionHandler(sender, e);
@@ -147,8 +166,9 @@ namespace NBug
 				var executionFlow = new BugReport().Report(e.Exception, ExceptionThread.UI_WPF);
                 e.Handled = true;
                 if (executionFlow == ExecutionFlow.BreakExecution)
-				{					
-					Environment.Exit(0);
+				{
+                    if (!OnExitCallback())
+					    Environment.Exit(0);
 				}
 			}
 		}
@@ -169,9 +189,10 @@ namespace NBug
 				var executionFlow = new BugReport().Report(e.Exception, ExceptionThread.UI_WinForms);
 				if (executionFlow == ExecutionFlow.BreakExecution)
 				{
-					Environment.Exit(0);
-				}
-			}
+                    if (!OnExitCallback())
+                        Environment.Exit(0);
+                }
+            }
 		}
 
 		/// <summary>
@@ -188,9 +209,10 @@ namespace NBug
 				var executionFlow = new BugReport().Report((Exception)e.ExceptionObject, ExceptionThread.Main);
 				if (executionFlow == ExecutionFlow.BreakExecution)
 				{
-					Environment.Exit(0);
-				}
-			}
+                    if (!OnExitCallback())
+                        Environment.Exit(0);
+                }
+            }
 		}
 
 		/// <summary>
@@ -208,9 +230,10 @@ namespace NBug
 				if (executionFlow == ExecutionFlow.BreakExecution)
 				{
 					e.SetObserved();
-					Environment.Exit(0);
-				}
-				else if (executionFlow == ExecutionFlow.ContinueExecution)
+                    if (!OnExitCallback())
+                        Environment.Exit(0);
+                }
+                else if (executionFlow == ExecutionFlow.ContinueExecution)
 				{
 					e.SetObserved();
 				}
